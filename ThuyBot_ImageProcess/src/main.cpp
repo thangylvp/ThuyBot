@@ -6,6 +6,18 @@
 
 #define CAM_DEBUG 0
 
+cv::Mat rgbMat;
+bool rgbReceive = false;
+
+void rgbCallback(const sensor_msgs::ImageConstPtr &msg_rgb) 
+{
+	cv_bridge::CvImagePtr rgbPtr = cv_bridge::toCvCopy(*msg_rgb, sensor_msgs::image_encodings::TYPE_8UC3);
+    rgbMat = rgbPtr->image.clone();
+    
+    rgbReceive = true;
+}
+
+
 int main(int argc, char** argv){
 
     std::cout << "OpenCV version : " << CV_VERSION << std::endl;
@@ -13,43 +25,30 @@ int main(int argc, char** argv){
     std::cout << "Minor version : " << CV_MINOR_VERSION << std::endl;
     std::cout << "Subminor version : " << CV_SUBMINOR_VERSION << std::endl;
 
-    ros::init(argc, argv, "image_publisher");
+    ros::init(argc, argv, "ImageProcess");
     ros::NodeHandle nh;
     image_transport::ImageTransport it(nh);
-    image_transport::Publisher pub = it.advertise("camera/image", 1);
-    sensor_msgs::ImagePtr msg;
-    ros::Rate loop_rate(30);
+    image_transport::Subscriber rgb_sub;
 
-    cv::VideoCapture cap(0); 
+    rgb_sub = it.subscribe("/camera/image", 1, rgbCallback);
+    ros::Rate loop_rate(1);
+
     cv::Mat frame;
-
-
-    bool succ = cap.set(cv::CAP_PROP_FPS , 30);
-    if (CAM_DEBUG) {
-        std::cerr << "Set fps : " << succ << std::endl;
-    }
-    if (!cap.isOpened())  
-        return -1;
-
     
-    while (nh.ok()) {    
-        cap >> frame;
+    while (ros::ok()) {    
         
-        if (!frame.empty()) {
-            msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg();
-            pub.publish(msg);
-        } 
-    
-        if (CAM_DEBUG) {
-            std::cerr << frame.rows << " " << frame.cols << " " << cap.get(CV_CAP_PROP_FPS) << std::endl;
-            cv::imshow("edges", frame);
-            if (cv::waitKey(10) == 'q') {
-                break;
-            }
+        if (rgbReceive) {
+            rgbReceive = false;
+            cv::imshow("xxx", rgbMat);
+            if (cv::waitKey(10) == 'q') break;
         }
 
         ros::spinOnce();
-        loop_rate.sleep();
+        // loop_rate.sleep();
+        
+        
+
+        
     }
     
     return 0;    
